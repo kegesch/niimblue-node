@@ -1,4 +1,4 @@
-import { EncodedImage, ImageRow, PrintDirection, Utils } from "@mmote/niimbluelib";
+import { EncodedGrayscaleImage, EncodedImage, ImageEncoder as ImageEncoderLib, ImageRow, PrintDirection, Utils } from "@mmote/niimbluelib";
 import sharp from "sharp";
 
 export class ImageEncoder {
@@ -69,6 +69,16 @@ export class ImageEncoder {
     }
 
     return { cols, rows, rowsData };
+  }
+
+  static async encodeImageGrayscale(src: sharp.Sharp, printDirection: PrintDirection = "top", padToWidth?: number): Promise<EncodedGrayscaleImage> {
+    const { data, info } = await src
+      .flatten({ background: "#fff" })
+      .grayscale()
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+
+    return ImageEncoderLib.encodeGrayscale(new Uint8Array(data), info.width, info.height, printDirection, padToWidth);
   }
 
   public static isPixelNonWhite(

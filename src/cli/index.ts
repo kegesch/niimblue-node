@@ -3,6 +3,7 @@ import { PrintDirection, printTaskNames } from "@mmote/niimbluelib";
 import { cliStartServer } from "../server";
 import { TransportType } from "../utils";
 import {
+  cliConnectAndPrintGrayscaleImageFile,
   cliConnectAndPrintImageFile,
   cliFlashFirmware,
   cliPrinterInfo,
@@ -80,6 +81,45 @@ program
     ] as SharpImagePosition[])
   )
   .action(cliConnectAndPrintImageFile);
+
+program
+  .command("print-grayscale")
+  .description("Prints image in grayscale mode (4-bit, for compatible printers like B1 Pro)")
+  .argument("<path>", "Image path")
+  .requiredOption("-d, --debug", "Debug information", false)
+  .addOption(
+    new Option("-t, --transport <type>", "Transport").makeOptionMandatory().choices(["ble", "serial"] as TransportType[])
+  )
+  .requiredOption("-a, --address <string>", "Device bluetooth address/name or serial port name/path")
+  .addOption(new Option("-o, --print-direction <dir>", "Print direction").choices(["left", "top"] as PrintDirection[]))
+  .requiredOption("-l, --label-type <type number>", "Label type", intOption, 1)
+  .requiredOption("-q, --density <number>", "Density", intOption, 3)
+  .requiredOption("-n, --quantity <number>", "Quantity", intOption, 1)
+  .option("-w, --label-width <number>", "Label width", intOption)
+  .option("-h, --label-height <number>", "Label height", intOption)
+  .addOption(
+    new Option("-f, --image-fit <dir>", "Image fit while resizing").choices([
+      "contain",
+      "cover",
+      "fill",
+      "inside",
+      "outside",
+    ] as SharpImageFit[])
+  )
+  .addOption(
+    new Option("-m, --image-position <dir>", "Image position while resizing").choices([
+      "left",
+      "top",
+      "centre",
+      "right top",
+      "right",
+      "right bottom",
+      "bottom",
+      "left bottom",
+      "left top",
+    ] as SharpImagePosition[])
+  )
+  .action(cliConnectAndPrintGrayscaleImageFile);
 
 program
   .command("server")
