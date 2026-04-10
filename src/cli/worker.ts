@@ -55,6 +55,7 @@ export interface PrintOptions {
   labelType: LabelType;
   density: number;
   threshold: number;
+  rotate?: number;
   labelWidth?: number;
   labelHeight?: number;
   imageFit?: SharpImageFit;
@@ -72,6 +73,10 @@ export const cliConnectAndPrintImageFile = async (path: string, options: PrintOp
   await client.connect();
 
   let image: sharp.Sharp = await loadImageFromFile(path);
+
+  if (options.rotate !== undefined) {
+    image = image.rotate(options.rotate);
+  }
 
   image = image.flatten({ background: "#fff" }).threshold(options.threshold);
 
@@ -151,6 +156,10 @@ export const cliConnectAndPrintGrayscaleImageFile = async (path: string, options
   await client.connect();
 
   let image: sharp.Sharp = await loadImageFromFile(path);
+
+  if (options.rotate !== undefined) {
+    image = image.rotate(options.rotate);
+  }
 
   image = image.flatten({ background: "#fff" });
 

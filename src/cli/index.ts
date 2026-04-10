@@ -80,6 +80,7 @@ program
       "left top",
     ] as SharpImagePosition[])
   )
+  .option("-r, --rotate <angle>", "Rotation angle (90, 180, 270)", intOption)
   .action(cliConnectAndPrintImageFile);
 
 program
@@ -119,6 +120,7 @@ program
       "left top",
     ] as SharpImagePosition[])
   )
+  .option("-r, --rotate <angle>", "Rotation angle (90, 180, 270)", intOption)
   .action(cliConnectAndPrintGrayscaleImageFile);
 
 program
