@@ -7,9 +7,19 @@ import {
   PrintTaskName,
 } from "@mmote/niimbluelib";
 import fs from "fs";
+import path from "node:path";
 import sharp from "sharp";
-import { ImageEncoder, NiimbotHeadlessBleClient, NiimbotHeadlessSerialClient } from "..";
-import { initClient, loadImageFromFile, printImage, TransportType } from "../utils";
+import {
+  ImageEncoder,
+  NiimbotHeadlessBleClient,
+  NiimbotHeadlessSerialClient,
+} from "..";
+import {
+  initClient,
+  loadImageFromFile,
+  printImage,
+  TransportType,
+} from "../utils";
 import { InvalidArgumentError } from "@commander-js/extra-typings";
 
 export type SharpImageFit = "contain" | "cover" | "fill" | "inside" | "outside";
@@ -60,18 +70,67 @@ export interface PrintOptions {
   labelHeight?: number;
   imageFit?: SharpImageFit;
   imagePosition?: SharpImagePosition;
+  /** When set, write the transformed image to disk and exit without printing. */
+  preview?: boolean;
+  /** Custom preview output path (default: <name>_preview.png). */
+  previewOut?: string;
   debug: boolean;
 }
 
-export const cliConnectAndPrintImageFile = async (path: string, options: PrintOptions & TransportOptions) => {
-  const client: NiimbotAbstractClient = initClient(options.transport, options.address, options.debug);
+export interface GrayscalePrintOptions {
+  printDirection?: PrintDirection;
+  quantity: number;
+  labelType: LabelType;
+  density: number;
+  rotate?: number;
+  labelWidth?: number;
+  labelHeight?: number;
+  imageFit?: SharpImageFit;
+  imagePosition?: SharpImagePosition;
+  /** Brightness multiplier applied to the source (1.0 = unchanged). */
+  brightness?: number;
+  /** Contrast multiplier centered at mid-gray (1.0 = unchanged). */
+  contrast?: number;
+  /** Gamma correction exponent (e.g. 2.2). */
+  gamma?: number;
+  /** When set, write the transformed image to disk and exit without printing. */
+  preview?: boolean;
+  /** Custom preview output path (default: <name>_preview.png). */
+  previewOut?: string;
+  debug: boolean;
+}
 
-  if (options.debug) {
-    console.log("Connecting to", options.transport, options.address);
-  }
+/**
+ * Default preview output path: <source_dir>/<source_name>_preview.png
+ */
+const defaultPreviewPath = (sourcePath: string): string => {
+  const p = path.parse(sourcePath);
+  return path.join(p.dir, `${p.name}_preview.png`);
+};
 
-  await client.connect();
+/**
+ * Writes the transformed image to disk as a PNG so the user can verify
+ * brightness/contrast/gamma/threshold/resize settings before committing to a
+ * print. `previewPath` optionally overrides the default output location.
+ * Returns the path that was written.
+ */
+const writePreviewImage = async (
+  image: sharp.Sharp,
+  sourcePath: string,
+  previewPath: string | undefined,
+): Promise<string> => {
+  const outPath =
+    typeof previewPath === "string" && previewPath.length > 0
+      ? previewPath
+      : defaultPreviewPath(sourcePath);
+  await image.png().toFile(outPath);
+  return outPath;
+};
 
+export const cliConnectAndPrintImageFile = async (
+  path: string,
+  options: PrintOptions & Partial<TransportOptions>,
+) => {
   let image: sharp.Sharp = await loadImageFromFile(path);
 
   if (options.rotate !== undefined) {
@@ -87,12 +146,47 @@ export const cliConnectAndPrintImageFile = async (path: string, options: PrintOp
       position: options.imagePosition ?? "centre",
       background: "#fff",
     });
-  } else if(options.imageFit !== undefined || options.imagePosition !== undefined) {
+  } else if (
+    options.imageFit !== undefined ||
+    options.imagePosition !== undefined
+  ) {
     throw new InvalidArgumentError("label-width and label-height must be set");
   }
 
-  const printDirection: PrintDirection | undefined = options.printDirection ?? client.getModelMetadata()?.printDirection;
-  const printTask: PrintTaskName | undefined = options.printTask ?? client.getPrintTaskType();
+  // Preview mode: write the transformed (thresholded) image to disk, then exit
+  // without connecting to or printing on the printer.
+  if (options.preview) {
+    const outPath = await writePreviewImage(
+      image.clone(),
+      path,
+      options.previewOut,
+    );
+    console.log(`Preview written to ${outPath} (not printed)`);
+    process.exit(0);
+  }
+
+  if (options.transport === undefined || options.address === undefined) {
+    throw new InvalidArgumentError(
+      "--transport and --address are required when not using --preview",
+    );
+  }
+
+  const client: NiimbotAbstractClient = initClient(
+    options.transport,
+    options.address,
+    options.debug,
+  );
+
+  if (options.debug) {
+    console.log("Connecting to", options.transport, options.address);
+  }
+
+  await client.connect();
+
+  const printDirection: PrintDirection | undefined =
+    options.printDirection ?? client.getModelMetadata()?.printDirection;
+  const printTask: PrintTaskName | undefined =
+    options.printTask ?? client.getPrintTaskType();
 
   const encoded = await ImageEncoder.encodeImage(image, printDirection);
 
@@ -129,7 +223,7 @@ export const cliScan = async (options: ScanOptions) => {
   } else if (options.transport === "serial") {
     const devices = await NiimbotHeadlessSerialClient.scan();
     for (const dev of devices) {
-      console.log(`${dev.address}: ${dev.name}`)
+      console.log(`${dev.address}: ${dev.name}`);
     }
   }
 
@@ -137,7 +231,11 @@ export const cliScan = async (options: ScanOptions) => {
 };
 
 export const cliPrinterInfo = async (options: InfoOptions) => {
-  const client: NiimbotAbstractClient = initClient(options.transport, options.address, options.debug);
+  const client: NiimbotAbstractClient = initClient(
+    options.transport,
+    options.address,
+    options.debug,
+  );
   await client.connect();
   console.log("Printer info:", client.getPrinterInfo());
   console.log("Model metadata:", client.getModelMetadata());
@@ -146,15 +244,10 @@ export const cliPrinterInfo = async (options: InfoOptions) => {
   process.exit(0);
 };
 
-export const cliConnectAndPrintGrayscaleImageFile = async (path: string, options: Omit<PrintOptions, "threshold"> & TransportOptions) => {
-  const client: NiimbotAbstractClient = initClient(options.transport, options.address, options.debug);
-
-  if (options.debug) {
-    console.log("Connecting to", options.transport, options.address);
-  }
-
-  await client.connect();
-
+export const cliConnectAndPrintGrayscaleImageFile = async (
+  path: string,
+  options: GrayscalePrintOptions & Partial<TransportOptions>,
+) => {
   let image: sharp.Sharp = await loadImageFromFile(path);
 
   if (options.rotate !== undefined) {
@@ -162,6 +255,38 @@ export const cliConnectAndPrintGrayscaleImageFile = async (path: string, options
   }
 
   image = image.flatten({ background: "#fff" });
+
+  // Adjust brightness/contrast/gamma of the source before encoding.
+  // sharp applies these in a fixed pipeline order (modulate -> linear -> gamma)
+  // regardless of where they are chained, so they always act on the pixels.
+  if (options.brightness !== undefined) {
+    image = image.modulate({ brightness: options.brightness });
+  }
+
+  if (options.contrast !== undefined) {
+    // Contrast multiplier centered at mid-gray (128 for 8-bit):
+    //   output = input * contrast + 128 * (1 - contrast)
+    const c = options.contrast;
+    image = image.linear(c, 128 * (1 - c));
+  }
+
+  if (options.gamma !== undefined) {
+    // Two-arg form: gamma(1, g) lightens midtones for g in (1, 3] (useful to
+    // compensate for dark thermal output). Single-arg gamma is a no-op round-trip.
+    image = image.gamma(1, options.gamma);
+  }
+
+  if (
+    options.debug &&
+    (options.brightness || options.contrast || options.gamma)
+  ) {
+    console.log(
+      "Grayscale adjustments:",
+      "brightness=" + (options.brightness ?? "off"),
+      "contrast=" + (options.contrast ?? "off"),
+      "gamma=" + (options.gamma ?? "off"),
+    );
+  }
 
   if (options.labelWidth !== undefined && options.labelHeight !== undefined) {
     image = image.resize(options.labelWidth, options.labelHeight, {
@@ -172,7 +297,39 @@ export const cliConnectAndPrintGrayscaleImageFile = async (path: string, options
     });
   }
 
-  const printDirection: PrintDirection | undefined = options.printDirection ?? client.getModelMetadata()?.printDirection;
+  // Preview mode: write the transformed image to disk, then exit without
+  // printing. Converted to grayscale so the preview reflects the luminance the
+  // printer will actually output.
+  if (options.preview) {
+    const outPath = await writePreviewImage(
+      image.clone().grayscale(),
+      path,
+      options.previewOut,
+    );
+    console.log(`Preview written to ${outPath} (not printed)`);
+    process.exit(0);
+  }
+
+  if (options.transport === undefined || options.address === undefined) {
+    throw new InvalidArgumentError(
+      "--transport and --address are required when not using --preview",
+    );
+  }
+
+  const client: NiimbotAbstractClient = initClient(
+    options.transport,
+    options.address,
+    options.debug,
+  );
+
+  if (options.debug) {
+    console.log("Connecting to", options.transport, options.address);
+  }
+
+  await client.connect();
+
+  const printDirection: PrintDirection | undefined =
+    options.printDirection ?? client.getModelMetadata()?.printDirection;
 
   // Pad grayscale data to match the printer's expected row stride.
   // BLE capture from B1 Pro shows SetPageSize cols=575 with data stride=288 bytes/row (576 pixels).
@@ -182,13 +339,29 @@ export const cliConnectAndPrintGrayscaleImageFile = async (path: string, options
   const padToWidth = 576;
 
   if (options.debug) {
-    console.log("Grayscale padToWidth:", padToWidth, "stride:", Math.ceil(padToWidth / 2));
+    console.log(
+      "Grayscale padToWidth:",
+      padToWidth,
+      "stride:",
+      Math.ceil(padToWidth / 2),
+    );
   }
 
-  const encoded = await ImageEncoder.encodeImageGrayscale(image, printDirection, padToWidth);
+  const encoded = await ImageEncoder.encodeImageGrayscale(
+    image,
+    printDirection,
+    padToWidth,
+  );
 
   if (options.debug) {
-    console.log("Encoded grayscale:", encoded.cols, "x", encoded.rows, "data length:", encoded.data.length);
+    console.log(
+      "Encoded grayscale:",
+      encoded.cols,
+      "x",
+      encoded.rows,
+      "data length:",
+      encoded.data.length,
+    );
   }
 
   const printTask = client.abstraction.newPrintTask("D110M_V4_GRAYSCALE", {
@@ -216,7 +389,11 @@ export const cliConnectAndPrintGrayscaleImageFile = async (path: string, options
 export const cliFlashFirmware = async (options: FirmwareOptions) => {
   const data: Uint8Array = fs.readFileSync(options.file);
 
-  const client: NiimbotAbstractClient = initClient(options.transport, options.address, options.debug);
+  const client: NiimbotAbstractClient = initClient(
+    options.transport,
+    options.address,
+    options.debug,
+  );
   await client.connect();
 
   client.stopHeartbeat();

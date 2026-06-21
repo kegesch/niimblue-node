@@ -116,6 +116,21 @@ _The `print-grayscale` command uses 4-bit grayscale and the `D110M_V4_GRAYSCALE`
 niimblue-cli print-grayscale -d -t serial -a COM8 -o top -l 2 -q 3 -w 560 -h 944 image.png
 ```
 
+You can brighten or adjust the source image before printing with `-b/--brightness`, `-c/--contrast` and `-g/--gamma` (`1.0` means no change). Brightness/gamma `<1` darkens and `>1` lightens; contrast `<1` flattens and `>1` punches up midtones. Gamma is limited to `1.0–3.0` (higher lightens midtones, useful to compensate for dark thermal output):
+
+```bash
+niimblue-cli print-grayscale -d -t serial -a COM8 -o top -l 2 -q 3 -w 560 -h 944 -b 1.2 -c 1.4 -g 2.2 image.png
+```
+
+To check what those adjustments will look like **before** printing, add `--preview`. It writes the transformed image to disk and exits without connecting to the printer (no `-t`/`-a` needed). The default output is `<name>_preview.png` next to the source; pass `--preview-out <path>` to write elsewhere — handy for comparing several settings side by side:
+
+```bash
+niimblue-cli print-grayscale --preview -b 1.2 -c 1.4 -g 2.2 image.png           # -> image_preview.png
+niimblue-cli print-grayscale --preview --preview-out bright.png -b 1.5 image.png
+```
+
+`--preview` works for the B&W `print` command too (it shows the thresholded 1-bit result): `niimblue-cli print --preview -x 100 label.png`.
+
 B1 firmware upgrade via serial:
 
 ```bash
