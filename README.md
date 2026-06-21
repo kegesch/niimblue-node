@@ -67,6 +67,7 @@ Available options:
 
 ```bash
 niimblue-cli help print
+niimblue-cli help print-grayscale
 niimblue-cli help info
 niimblue-cli help scan
 niimblue-cli help server
@@ -105,6 +106,14 @@ B21_PRO BLE, long parameter names (will resize image to fit 50x30 300dpi label, 
 
 ```bash
 niimblue-cli print --debug --transport ble --address c3:16:13:04:06:18 --print-task D110M_V4 --print-direction top --label-width 584 --label-height 354 --image-fit fill label_15x30.png
+```
+
+B1 Pro grayscale via serial (4-bit grayscale, tested with a 54x80 thermal roll):
+
+_The `print-grayscale` command uses 4-bit grayscale and the `D110M_V4_GRAYSCALE` print task, and pads the image to a 576px row stride for the B1 Pro. Unlike `print`, there is no `-p/--print-task` option. Note that `-q` is print **density** (darkness, default 3), not quantity — quantity is `-n`._
+
+```bash
+niimblue-cli print-grayscale -d -t serial -a COM8 -o top -l 2 -q 3 -w 560 -h 944 image.png
 ```
 
 B1 firmware upgrade via serial:

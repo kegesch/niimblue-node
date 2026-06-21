@@ -85,7 +85,10 @@ program
 
 program
   .command("print-grayscale")
-  .description("Prints image in grayscale mode (4-bit, for compatible printers like B1 Pro)")
+  .description(
+    "Prints image in 4-bit grayscale mode (for compatible printers like B1 Pro). " +
+      "Uses the D110M_V4_GRAYSCALE print task and pads to a 576px row stride; no --print-task option."
+  )
   .argument("<path>", "Image path")
   .requiredOption("-d, --debug", "Debug information", false)
   .addOption(
