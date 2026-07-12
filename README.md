@@ -122,11 +122,27 @@ You can brighten or adjust the source image before printing with `-b/--brightnes
 niimblue-cli print-grayscale -d -t serial -a COM8 -o top -l 2 -q 3 -w 560 -h 944 -b 1.2 -c 1.4 -g 2.2 image.png
 ```
 
+For images that need different corrections every time, use `--auto-tone <mode>` to let the CLI analyse the image and apply an automatic tone curve before any manual adjustments:
+
+* `stretch` — percentile stretch (default behaviour when the flag is used without a value is not supported; pick a mode).
+* `gaussian` — match the histogram to a Gaussian distribution.
+* `equalize` — standard histogram equalization.
+* `gamma-mean` — choose gamma so the image mean maps to mid-gray.
+
+```bash
+niimblue-cli print-grayscale --preview --auto-tone stretch image.png
+niimblue-cli print-grayscale --preview --auto-tone gaussian image.png
+niimblue-cli print-grayscale -d -t serial -a COM8 -o top -l 2 -q 3 -w 560 -h 944 --auto-tone gamma-mean image.png
+```
+
+Auto-tone is applied first; manual `-b`/`-c`/`-g` values are then applied on top, so you can fine-tune the result.
+
 To check what those adjustments will look like **before** printing, add `--preview`. It writes the transformed image to disk and exits without connecting to the printer (no `-t`/`-a` needed). The default output is `<name>_preview.png` next to the source; pass `--preview-out <path>` to write elsewhere — handy for comparing several settings side by side:
 
 ```bash
 niimblue-cli print-grayscale --preview -b 1.2 -c 1.4 -g 2.2 image.png           # -> image_preview.png
 niimblue-cli print-grayscale --preview --preview-out bright.png -b 1.5 image.png
+niimblue-cli print-grayscale --preview --auto-tone gaussian --preview-out gaussian.png image.png
 ```
 
 `--preview` works for the B&W `print` command too (it shows the thresholded 1-bit result): `niimblue-cli print --preview -x 100 label.png`.

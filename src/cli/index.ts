@@ -4,6 +4,7 @@ import {
   program,
 } from "@commander-js/extra-typings";
 import { PrintDirection, printTaskNames } from "@mmote/niimbluelib";
+import { AutoToneMode } from "../image_processing";
 import { cliStartServer } from "../server";
 import { TransportType } from "../utils";
 import {
@@ -206,6 +207,12 @@ program
     "-g, --gamma <number>",
     "Gamma 1.0-3.0 (1.0 = unchanged; higher lightens midtones)",
     gammaOption,
+  )
+  .addOption(
+    new Option(
+      "--auto-tone <mode>",
+      "Auto-adjust tone before manual corrections",
+    ).choices(["stretch", "gaussian", "equalize", "gamma-mean"] as AutoToneMode[]),
   )
   .option(
     "--preview",

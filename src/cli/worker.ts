@@ -14,6 +14,7 @@ import {
   NiimbotHeadlessBleClient,
   NiimbotHeadlessSerialClient,
 } from "..";
+import { applyAutoTone, AutoToneMode } from "../image_processing";
 import {
   initClient,
   loadImageFromFile,
@@ -93,6 +94,8 @@ export interface GrayscalePrintOptions {
   contrast?: number;
   /** Gamma correction exponent (e.g. 2.2). */
   gamma?: number;
+  /** Automatic tone adjustment applied before manual corrections. */
+  autoTone?: AutoToneMode;
   /** When set, write the transformed image to disk and exit without printing. */
   preview?: boolean;
   /** Custom preview output path (default: <name>_preview.png). */
@@ -256,6 +259,14 @@ export const cliConnectAndPrintGrayscaleImageFile = async (
 
   image = image.flatten({ background: "#fff" });
 
+  // Apply automatic tone adjustment first, then allow manual overrides on top.
+  if (options.autoTone !== undefined) {
+    if (options.debug) {
+      console.log("Auto-tone:", options.autoTone);
+    }
+    image = await applyAutoTone(image, options.autoTone);
+  }
+
   // Adjust brightness/contrast/gamma of the source before encoding.
   // sharp applies these in a fixed pipeline order (modulate -> linear -> gamma)
   // regardless of where they are chained, so they always act on the pixels.
@@ -278,10 +289,11 @@ export const cliConnectAndPrintGrayscaleImageFile = async (
 
   if (
     options.debug &&
-    (options.brightness || options.contrast || options.gamma)
+    (options.brightness || options.contrast || options.gamma || options.autoTone)
   ) {
     console.log(
       "Grayscale adjustments:",
+      "auto-tone=" + (options.autoTone ?? "off"),
       "brightness=" + (options.brightness ?? "off"),
       "contrast=" + (options.contrast ?? "off"),
       "gamma=" + (options.gamma ?? "off"),

@@ -23,6 +23,7 @@ export const cliStartServer = (options: ServerOptions) => {
   s.get("/connected", w.connected);
   s.get("/info", w.info);
   s.post("/print", w.print);
+  s.post("/print-grayscale", w.printGrayscale);
   s.post("/scan", w.scan);
 
   s.start(options.host, options.port, () => {
