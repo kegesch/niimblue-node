@@ -223,11 +223,15 @@ export const printGrayscale = async (r: IncomingMessage) => {
 
   const printDirection: PrintDirection | undefined = options.printDirection ?? client!.getModelMetadata()?.printDirection;
 
-  // Match the B1 Pro 576px row stride used by the CLI grayscale path.
-  const padToWidth = 576;
+  // Pad grayscale data to the printer's physical printhead width.
+  // Using the printhead width (e.g. 567 for B1 Pro) instead of the firmware's
+  // internal buffer width (576) avoids scaling the image horizontally.
+  // Fallback to 576 only when model metadata is unavailable.
+  const printheadPixels = client!.getModelMetadata()?.printheadPixels;
+  const padToWidth = printheadPixels ?? 576;
 
   if (debug) {
-    console.log("Grayscale padToWidth:", padToWidth, "stride:", Math.ceil(padToWidth / 2));
+    console.log("Grayscale printheadPixels:", printheadPixels, "padToWidth:", padToWidth, "stride:", Math.ceil(padToWidth / 2));
   }
 
   const encoded = await ImageEncoder.encodeImageGrayscale(image, printDirection, padToWidth);

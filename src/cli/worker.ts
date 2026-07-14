@@ -343,16 +343,18 @@ export const cliConnectAndPrintGrayscaleImageFile = async (
   const printDirection: PrintDirection | undefined =
     options.printDirection ?? client.getModelMetadata()?.printDirection;
 
-  // Pad grayscale data to match the printer's expected row stride.
-  // BLE capture from B1 Pro shows SetPageSize cols=575 with data stride=288 bytes/row (576 pixels).
-  // The printhead is 567 pixels but the firmware uses a 576-pixel-wide internal buffer.
-  // For now, hardcode padToWidth=576 to match BLE behavior.
-  // TODO: derive from printer model metadata if needed for other printers.
-  const padToWidth = 576;
+  // Pad grayscale data to the printer's physical printhead width.
+  // Using the printhead width (e.g. 567 for B1 Pro) instead of the firmware's
+  // internal buffer width (576) avoids scaling the image horizontally.
+  // Fallback to 576 only when model metadata is unavailable.
+  const printheadPixels = client.getModelMetadata()?.printheadPixels;
+  const padToWidth = printheadPixels ?? 576;
 
   if (options.debug) {
     console.log(
-      "Grayscale padToWidth:",
+      "Grayscale printheadPixels:",
+      printheadPixels,
+      "padToWidth:",
       padToWidth,
       "stride:",
       Math.ceil(padToWidth / 2),

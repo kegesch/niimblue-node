@@ -11,7 +11,6 @@ import {
   ResponseCommandId,
   Utils,
 } from "@mmote/niimbluelib";
-import fs from "fs";
 import sharp from "sharp";
 import { Readable } from "stream";
 import { NiimbotHeadlessBleClient, NiimbotHeadlessSerialClient } from ".";
@@ -115,6 +114,5 @@ export const loadImageFromUrl = async (url: string): Promise<sharp.Sharp> => {
 };
 
 export const loadImageFromFile = async (path: string): Promise<sharp.Sharp> => {
-  const stream = fs.createReadStream(path);
-  return stream.pipe(sharp());
+  return sharp(path);
 };
